@@ -196,9 +196,9 @@ async def close_sessions():
 EXTENSIONS = [
     'cogs.admin',
     'cogs.relocate', 'cogs.watermark', 'cogs.talk', 'cogs.role',
-    'cogs.watermark_user', 'cogs.metiers',
+    'cogs.watermark_user',
     'cogs.image_converter', 'cogs.endguild', 'cogs.clear',  # Updated to endguild
-    'cogs.alerts', 'cogs.welcomesparta',
+    'cogs.alerts',
     'cogs.super', 'cogs.translator', 'cogs.rules', 'cogs.write', 'cogs.dofustouch',
     # 'cogs.voice',  # Removed due to FFmpeg dependency exceeding Vercel size limits
 ]

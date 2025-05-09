@@ -71,8 +71,26 @@ class EndGuildCog(commands.Cog):
             # Update or create the panel message
             if self.panel_message:
                 try:
-                    await self.panel_message.edit(embed=embed, view=view)
-                    logger.debug("Updated existing panel message")
+                    # Add rate limit handling with exponential backoff
+                    max_retries = 3
+                    retry_count = 0
+                    retry_delay = 5
+                    
+                    while retry_count < max_retries:
+                        try:
+                            await self.panel_message.edit(embed=embed, view=view)
+                            logger.debug("Updated existing panel message")
+                            break  # Success, exit the retry loop
+                        except discord.HTTPException as e:
+                            if e.status == 429:  # Rate limit error
+                                retry_after = e.retry_after if hasattr(e, 'retry_after') else retry_delay
+                                logger.warning(f"Rate limited when updating panel. Retry after {retry_after}s")
+                                await asyncio.sleep(retry_after)
+                                retry_count += 1
+                                retry_delay *= 2  # Exponential backoff
+                            else:
+                                raise  # Re-raise non-rate-limit HTTP exceptions
+                        
                 except discord.NotFound:
                     logger.warning("Panel message not found, creating new one")
                     self.panel_message = None
@@ -98,18 +116,36 @@ class EndGuildCog(commands.Cog):
             # Wait a bit for the bot to fully initialize
             await asyncio.sleep(5)
             
+            # Track last successful update time to handle rate limits
+            last_update_time = datetime.now() - timedelta(minutes=10)  # Start with ability to update
+            update_interval = timedelta(minutes=5)  # Update every 5 minutes instead of 60 seconds
+            
             while not self.bot.is_closed():
                 try:
-                    # Update member counts
+                    # Update member counts every loop iteration
                     await self.update_member_counts()
                     
-                    # Update the panel
-                    await self.update_panel()
+                    # Only update the panel if enough time has passed since last update
+                    current_time = datetime.now()
+                    if current_time - last_update_time >= update_interval:
+                        # Update the panel
+                        await self.update_panel()
+                        last_update_time = current_time
+                        logger.info(f"Panel updated successfully at {current_time}")
                     
+                except discord.HTTPException as e:
+                    if e.status == 429:  # Rate limit error
+                        retry_after = e.retry_after if hasattr(e, 'retry_after') else 60
+                        logger.warning(f"Rate limited. Waiting {retry_after} seconds before next update attempt")
+                        # Increase the update interval temporarily to avoid rate limits
+                        update_interval = max(update_interval, timedelta(seconds=retry_after * 2))
+                        await asyncio.sleep(retry_after)
+                    else:
+                        logger.error(f"HTTP error in panel update loop: {e}")
                 except Exception as e:
                     logger.error(f"Error in panel update loop: {e}")
                 
-                # Update every 60 seconds
+                # Check every minute, but only update based on update_interval
                 await asyncio.sleep(60)
                 
         except asyncio.CancelledError:
