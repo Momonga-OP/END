@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '*/50 * * * *'  # Runs every 50 minutes to keep the bot alive
+    - cron: '30 */5 * * *'  # Triggers every 5 hours and 30 minutes
   workflow_dispatch:       # Allows manual triggering from GitHub UI
 
 jobs:
@@ -82,5 +82,5 @@ jobs:
           # Import the keep-alive module in the main script
           sed -i '1s/^/import keep_alive\n/' main.py
           
-          # Run the bot with timeout to restart every 45 minutes (GitHub Actions max is 6 hours)
-          timeout 2700 python main.py || echo "Bot timeout reached, workflow will restart"
+          # Run the bot with timeout to restart after 5 hours and 30 minutes (19800 seconds)
+          timeout 19800 python main.py || echo "Bot timeout reached, workflow will restart"
