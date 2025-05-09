@@ -41,13 +41,28 @@ class EndGuildCog(commands.Cog):
         if guild:
             try:
                 await guild.chunk()  # Load all members
+                
+                # Track total online members and their statuses
+                self.online_members = {
+                    'online': 0,  # Green status
+                    'idle': 0,    # Yellow/Away status
+                    'dnd': 0      # Red/Do Not Disturb status
+                }
+                
+                # Track guild-specific counts
                 for role in guild.roles:
                     if role.name.startswith("DEF"):
-                        self.member_counts[role.name] = sum(
-                            1 for m in role.members 
-                            if not m.bot and m.raw_status != 'offline'
-                        )
+                        online_count = 0
+                        for m in role.members:
+                            if not m.bot and m.raw_status != 'offline':
+                                online_count += 1
+                                # Also count for global stats
+                                self.online_members[m.raw_status] += 1
+                        
+                        self.member_counts[role.name] = online_count
+                
                 logger.debug(f"Updated member counts: {self.member_counts}")
+                logger.debug(f"Online members: {self.online_members}")
             except Exception as e:
                 logger.error(f"Error updating member counts: {e}")
 
@@ -102,31 +117,43 @@ class EndGuildCog(commands.Cog):
             timestamp=datetime.now()
         )
         
-        total_connectes = sum(self.member_counts.values())
+        # Get total online players and breakdown by status
+        total_online = sum(self.member_counts.values())
+        online_count = self.online_members.get('online', 0)
+        idle_count = self.online_members.get('idle', 0)
+        dnd_count = self.online_members.get('dnd', 0)
         
-        # Update the icon URL to a more modern icon (you can replace this with your own)
+        # Update the icon URL to a more modern icon
         embed.set_author(
             name="Système d'Alerte END",
-            icon_url="https://i.imgur.com/6YToyEF.png"  # Replace with your custom END logo
+            icon_url="https://i.imgur.com/6YToyEF.png"  # END logo
         )
         
         # Add a thumbnail for better visual appeal
         embed.set_thumbnail(url="https://i.imgur.com/JzDnCGU.png")  # Shield icon
         
-        # Improved description with better formatting
-        current_time = datetime.now().strftime("%d/%m/%Y")
+        # Current date and time
+        current_date = datetime.now().strftime("%d/%m/%Y")
+        current_time = datetime.now().strftime("%H:%M:%S")
+        
+        # Improved description with better formatting and detailed online counts
         embed.description = (
             "```ini\n[END DEFENSE SYSTEM v3.0.0]\n```\n"
             "### 📋 Instructions\n"
             "> 1️⃣ Sélectionnez votre guilde ci-dessous\n"
             "> 2️⃣ Suivez les alertes dans <#1370180452995825765>\n"
             "> 3️⃣ Ajoutez des notes aux alertes si nécessaire\n\n"
-            f"**👥 Défenseurs en ligne:** `{total_connectes}`  •  **📅 Date:** `{current_time}`\n"
-            "```fix\n⚡ Statut: OPÉRATIONNEL\n```"
+            f"**👥 Défenseurs en ligne:** `{total_online}` "
+            f"(🟢 `{online_count}` • 🟡 `{idle_count}` • 🔴 `{dnd_count}`)  •  "
+            f"**📅 Date:** `{current_date}`\n\n"
+            f"**⚡ Statut:** {'`OPÉRATIONNEL`' if total_online > 0 else '`EN ATTENTE DE DÉFENSEURS`'}"
         )
 
         # Add a divider for better section separation
         embed.add_field(name="⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯", value="", inline=False)
+        
+        # Set footer with last update time
+        embed.set_footer(text=f"END Defense System • Dernière actualisation: {current_time} • Today at {datetime.now().strftime('%I:%M %p')}")
         
         # Guild status fields with improved styling
         for guild_name, count in self.member_counts.items():
