@@ -152,7 +152,7 @@ class EndGuildCog(commands.Cog):
             "```ini\n[END DEFENSE SYSTEM v3.0.0]\n```\n"
             "### 📋 Instructions\n"
             "> 1️⃣ Sélectionnez votre guilde ci-dessous\n"
-            "> 2️⃣ Suivez les alertes dans <#1370180452995825765>\n"
+            "> 2️⃣ Suivez les alertes dans <#1264140175395655712>\n"
             "> 3️⃣ Ajoutez des notes aux alertes si nécessaire\n\n"
             f"**👥 Défenseurs en ligne:** `{self.total_online_members}`  •  "
             f"**📅 Date:** `{current_date}`\n\n"

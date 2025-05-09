@@ -69,9 +69,9 @@ jobs:
         run: |
           echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" > .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-          echo "GUILD_ID=1217700740949348443" >> .env
-          echo "PING_DEF_CHANNEL_ID=1370180375740944424" >> .env
-          echo "ALERTE_DEF_CHANNEL_ID=1370180452995825765" >> .env
+          echo "GUILD_ID=1263938704670593085" >> .env
+          echo "PING_DEF_CHANNEL_ID=1369382571363930174" >> .env
+          echo "ALERTE_DEF_CHANNEL_ID=1264140175395655712" >> .env
           echo "OWNER_ID=486652069831376943" >> .env
           echo "DEV_MODE=False" >> .env
           cat .env

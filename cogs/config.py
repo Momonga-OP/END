@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-GUILD_ID = int(os.getenv('GUILD_ID', '1300093554064097400'))
-PING_DEF_CHANNEL_ID = int(os.getenv('PING_DEF_CHANNEL_ID', '1307429490158342256'))
-ALERTE_DEF_CHANNEL_ID = int(os.getenv('ALERTE_DEF_CHANNEL_ID', '1300093554399645715'))
+GUILD_ID = int(os.getenv('GUILD_ID', '1263938704670593085'))
+PING_DEF_CHANNEL_ID = int(os.getenv('PING_DEF_CHANNEL_ID', '1369382571363930174'))
+ALERTE_DEF_CHANNEL_ID = int(os.getenv('ALERTE_DEF_CHANNEL_ID', '1264140175395655712'))
 
 # Test button configuration
 TEST_BUTTON_ID = int(os.getenv('TEST_BUTTON_ID', '486652069831376943'))
