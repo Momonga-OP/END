@@ -1,14 +1,12 @@
-name: Discord Bot Deployment
+name: END Discord Bot Deployment
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   schedule:
-    - cron: '30 */5 * * *'  # Triggers every 5 hours and 30 minutes
+    - cron: '*/50 * * * *'  # Runs every 50 minutes to keep the bot alive
+  workflow_dispatch:       # Allows manual triggering from GitHub UI
 
 jobs:
   deploy:
@@ -37,12 +35,53 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Step 5: Run the bot
-      - name: Run the bot
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}  # Discord bot token
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}   # Supabase PostgreSQL connection string
-          MONGO_URI: ${{ secrets.MONGO_URI }}         # MongoDB URI
-          DEEPSEEK_TOKEN: ${{ secrets.DEEPSEEK_TOKEN }}  # DeepSeek API token
+      # Step 5: Create keep-alive script
+      - name: Create keep-alive script
         run: |
-          python main.py
+          cat > keep_alive.py << 'EOL'
+          import time
+          import threading
+          import requests
+          import os
+          import sys
+          
+          def ping_vercel():
+              """Ping the Vercel deployment to keep it warm"""
+              try:
+                  url = "https://end-safeing.vercel.app"
+                  response = requests.get(url)
+                  print(f"Pinged {url}: {response.status_code}")
+              except Exception as e:
+                  print(f"Error pinging Vercel: {e}")
+          
+          def keep_alive():
+              """Send periodic pings to keep the service alive"""
+              while True:
+                  ping_vercel()
+                  time.sleep(300)  # Ping every 5 minutes
+          
+          # Start the keep-alive thread
+          keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
+          keep_alive_thread.start()
+          EOL
+
+      # Step 6: Create .env file from secrets
+      - name: Create .env file
+        run: |
+          echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" > .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "GUILD_ID=1217700740949348443" >> .env
+          echo "PING_DEF_CHANNEL_ID=1370180375740944424" >> .env
+          echo "ALERTE_DEF_CHANNEL_ID=1370180452995825765" >> .env
+          echo "OWNER_ID=486652069831376943" >> .env
+          echo "DEV_MODE=False" >> .env
+          cat .env
+          
+      # Step 7: Run the bot with keep-alive
+      - name: Run the bot
+        run: |
+          # Import the keep-alive module in the main script
+          sed -i '1s/^/import keep_alive\n/' main.py
+          
+          # Run the bot with timeout to restart every 45 minutes (GitHub Actions max is 6 hours)
+          timeout 2700 python main.py || echo "Bot timeout reached, workflow will restart"

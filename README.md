@@ -43,13 +43,38 @@ END Bot (formerly Start2000) is a Discord bot designed to manage guild defense a
 
 ## Deployment on Vercel
 
-1. Create a Vercel account if you don't have one
-2. Install Vercel CLI:
-   ```bash
-   npm i -g vercel
-   ```
+The END Bot is deployed on Vercel at: https://end-safeing.vercel.app
 
-3. Initialize Vercel project:
+### Deployment Steps
+
+1. Create a Vercel account if you don't have one
+2. Connect your GitHub repository to Vercel
+3. Configure environment variables in Vercel dashboard:
+   - `DISCORD_TOKEN`
+   - `GUILD_ID`
+   - `PING_DEF_CHANNEL_ID`
+   - `ALERTE_DEF_CHANNEL_ID`
+   - `OWNER_ID`
+   - `DATABASE_URL`
+   - `DEV_MODE=False`
+
+4. Deploy the application
+
+### API Endpoints
+
+- **Status Check**: `GET https://end-safeing.vercel.app`
+  - Returns the current status of the bot
+
+### Architecture
+
+The END Bot uses a hybrid architecture:
+- **API Layer**: Hosted on Vercel (serverless functions)
+- **Bot Layer**: Must be run locally or on a VPS for the Discord WebSocket connection
+- **Database**: PostgreSQL hosted on Supabase
+
+### Additional Deployment Options
+
+1. Initialize Vercel project:
    ```bash
    vercel
    ```

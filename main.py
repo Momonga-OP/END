@@ -5,7 +5,7 @@ import asyncio
 import logging
 import sys
 from dotenv import load_dotenv
-from database import initialize_db, load_guild_data_from_db
+from database import initialize_db
 from cogs.config import load_guild_data_from_db
 
 # Load environment variables
