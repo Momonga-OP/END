@@ -18,10 +18,15 @@ class EndGuildCog(commands.Cog):
         self.cooldowns = {}
         self.ping_history = defaultdict(list)
         self.member_counts = {}
+        self.online_members = {'online': 0, 'idle': 0, 'dnd': 0}
         self.panel_message: Optional[discord.Message] = None
         
         # Start the panel update task
         self.panel_update_task = self.bot.loop.create_task(self.panel_update_loop())
+        
+        # Register event listeners
+        self.bot.add_listener(self.on_member_update, 'on_member_update')
+        self.bot.add_listener(self.on_presence_update, 'on_presence_update')
         
     def cog_unload(self):
         """Clean up when the cog is unloaded."""
@@ -40,7 +45,8 @@ class EndGuildCog(commands.Cog):
         guild = self.bot.get_guild(GUILD_ID)
         if guild:
             try:
-                await guild.chunk()  # Load all members
+                # Force fetch all members and their presences
+                await guild.chunk(cache=True)
                 
                 # Track total online members and their statuses
                 self.online_members = {
@@ -49,17 +55,35 @@ class EndGuildCog(commands.Cog):
                     'dnd': 0      # Red/Do Not Disturb status
                 }
                 
-                # Track guild-specific counts
-                for role in guild.roles:
-                    if role.name.startswith("DEF"):
-                        online_count = 0
-                        for m in role.members:
-                            if not m.bot and m.raw_status != 'offline':
-                                online_count += 1
-                                # Also count for global stats
-                                self.online_members[m.raw_status] += 1
-                        
-                        self.member_counts[role.name] = online_count
+                # Initialize member counts dictionary if not exists
+                if not hasattr(self, 'member_counts') or not self.member_counts:
+                    self.member_counts = {}
+                
+                # Get guild data from config
+                from .config import GUILD_EMOJIS_ROLES, load_guild_data_from_db
+                load_guild_data_from_db()  # Refresh guild data
+                
+                # Track guild-specific counts based on roles from database
+                for guild_name, guild_data in GUILD_EMOJIS_ROLES.items():
+                    role_id = guild_data.get('role_id')
+                    if role_id:
+                        role = guild.get_role(role_id)
+                        if role:
+                            online_count = 0
+                            for m in role.members:
+                                # Check if member is online (not offline and not invisible)
+                                if not m.bot and hasattr(m, 'status') and str(m.status) != 'offline':
+                                    online_count += 1
+                                    # Also count for global stats based on status
+                                    status = str(m.status)
+                                    if status in self.online_members:
+                                        self.online_members[status] += 1
+                            
+                            # Store the count for this guild
+                            self.member_counts[guild_name] = online_count
+                        else:
+                            logger.warning(f"Role with ID {role_id} for guild {guild_name} not found")
+                            self.member_counts[guild_name] = 0
                 
                 logger.debug(f"Updated member counts: {self.member_counts}")
                 logger.debug(f"Online members: {self.online_members}")
@@ -238,14 +262,42 @@ class EndGuildCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error updating panel: {e}")
 
+    async def on_member_update(self, before, after):
+        """Handle member updates to refresh the panel."""
+        # Only process if the update is in the main guild
+        if after.guild.id == GUILD_ID:
+            # Check if roles changed
+            if before.roles != after.roles:
+                logger.debug(f"Member {after.name} roles changed, updating panel")
+                await self.update_member_counts()
+                await self.update_panel()
+    
+    async def on_presence_update(self, before, after):
+        """Handle presence updates to refresh the panel."""
+        # Only process if the update is in the main guild
+        if after.guild.id == GUILD_ID:
+            # Check if status changed (online/offline/idle/dnd)
+            if before.status != after.status:
+                logger.debug(f"Member {after.name} status changed from {before.status} to {after.status}")
+                await self.update_member_counts()
+                await self.update_panel()
+    
     async def panel_update_loop(self):
-        """Background task to update the panel periodically."""
+        """Loop to update the panel message periodically."""
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             try:
+                # Ensure we have the panel message
                 await self.ensure_panel()
+                
+                # Update member counts and refresh the panel
+                await self.update_member_counts()
+                await self.update_panel()
+                
+                # Wait before next update
                 await asyncio.sleep(60)  # Update every minute
             except asyncio.CancelledError:
+                # Handle proper cancellation
                 break
             except Exception as e:
                 logger.error(f"Error in panel update loop: {e}")
