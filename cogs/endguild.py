@@ -24,6 +24,10 @@ class EndGuildCog(commands.Cog):
         self.member_counts = {}
         self.total_online_members = 0
         self.panel_message: Optional[discord.Message] = None
+        self.last_presence_update = datetime.now()
+        self.presence_update_cooldown = 600  # 10 minutes in seconds
+        self.last_member_update = datetime.now()
+        self.member_update_cooldown = 600  # 10 minutes in seconds
         
         # Start the panel update task
         self.panel_update_task = self.bot.loop.create_task(self.panel_update_loop())
@@ -341,6 +345,10 @@ class EndGuildCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error updating panel: {e}")
 
+    # Track last member update time
+    last_member_update = datetime.now()
+    member_update_cooldown = 600  # 10 minutes in seconds
+    
     async def on_member_update(self, before, after):
         """Handle member updates to refresh the panel."""
         # Only process if the update is in the main guild
@@ -348,8 +356,18 @@ class EndGuildCog(commands.Cog):
             # Check if roles changed
             if before.roles != after.roles:
                 logger.debug(f"Member {after.name} roles changed, updating panel")
-                await self.update_member_counts()
-                await self.update_panel()
+                
+                # Only update if cooldown has passed
+                now = datetime.now()
+                if (now - self.last_member_update).total_seconds() >= self.member_update_cooldown:
+                    logger.info(f"Updating panel due to role changes (cooldown passed)")
+                    await self.update_member_counts()
+                    await self.update_panel()
+                    self.last_member_update = now
+    
+    # Track last update time to prevent too frequent updates
+    last_presence_update = datetime.now()
+    presence_update_cooldown = 600  # 10 minutes in seconds
     
     async def on_presence_update(self, before, after):
         """Handle presence updates to refresh the panel."""
@@ -358,8 +376,14 @@ class EndGuildCog(commands.Cog):
             # Check if status changed (online/offline/idle/dnd)
             if before.status != after.status:
                 logger.debug(f"Member {after.name} status changed from {before.status} to {after.status}")
-                await self.update_member_counts()
-                await self.update_panel()
+                
+                # Only update if cooldown has passed
+                now = datetime.now()
+                if (now - self.last_presence_update).total_seconds() >= self.presence_update_cooldown:
+                    logger.info(f"Updating panel due to presence changes (cooldown passed)")
+                    await self.update_member_counts()
+                    await self.update_panel()
+                    self.last_presence_update = now
     
     async def panel_update_loop(self):
         """Loop to update the panel message periodically."""
@@ -374,13 +398,13 @@ class EndGuildCog(commands.Cog):
                 await self.update_panel()
                 
                 # Wait before next update
-                await asyncio.sleep(60)  # Update every minute
+                await asyncio.sleep(600)  # Update every 10 minutes
             except asyncio.CancelledError:
                 # Handle proper cancellation
                 break
             except Exception as e:
                 logger.error(f"Error in panel update loop: {e}")
-                await asyncio.sleep(60)  # Wait a bit before retrying
+                await asyncio.sleep(600)  # Wait a bit before retrying
 
     async def handle_ping(self, guild_name):
         """Handle cooldown for guild pings."""
