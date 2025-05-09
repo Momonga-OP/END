@@ -44,35 +44,11 @@ class EndGuildCog(commands.Cog):
             
             # Find existing panel message if we don't have one
             if not self.panel_message:
-                # Add a delay before making API calls
-                await asyncio.sleep(1)
-                
-                # Use a smaller limit to reduce API load
-                try:
-                    message_count = 0
-                    async for message in channel.history(limit=5):
-                        message_count += 1
-                        if message.author == self.bot.user and message.embeds and len(message.embeds) > 0:
-                            self.panel_message = message
-                            logger.info("Found existing panel message")
-                            break
-                            
-                    # If no message was found and we didn't see any messages at all, create a new one
-                    if not self.panel_message and message_count == 0:
-                        logger.info("No messages found in channel, creating new panel message")
-                        embed = await self.create_panel_embed()
-                        view = GuildPingView(self)
-                        
-                        # Add delay before sending
-                        await asyncio.sleep(2)
-                        self.panel_message = await channel.send(embed=embed, view=view)
-                except discord.HTTPException as e:
-                    if e.status == 429:  # Rate limit error
-                        retry_after = e.retry_after if hasattr(e, 'retry_after') else 60
-                        logger.warning(f"Rate limited when searching for panel message. Waiting {retry_after}s")
-                        await asyncio.sleep(retry_after)
-                    else:
-                        logger.error(f"HTTP error in ensure_panel: {e}")
+                async for message in channel.history(limit=10):
+                    if message.author == self.bot.user and message.embeds and len(message.embeds) > 0:
+                        self.panel_message = message
+                        logger.info("Found existing panel message")
+                        break
         except Exception as e:
             logger.error(f"Error in ensure_panel: {e}")
     
@@ -85,70 +61,32 @@ class EndGuildCog(commands.Cog):
                 logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
                 return
             
-            # Add a small delay before any API operations to space out requests
-            await asyncio.sleep(2)
-            
             # Ensure we have a panel message
             await self.ensure_panel()
-            
-            # If we couldn't find a panel message, don't try to create one right away
-            if not self.panel_message:
-                logger.warning("No panel message found. Will try again in the next update cycle.")
-                return
             
             # Create the panel embed and view
             embed = await self.create_panel_embed()
             view = GuildPingView(self)
             
-            # Update the panel message with aggressive rate limit handling
-            try:
-                # Add rate limit handling with exponential backoff
-                max_retries = 2  # Reduce max retries to avoid excessive attempts
-                retry_count = 0
-                retry_delay = 10  # Start with a longer initial delay
-                
-                while retry_count < max_retries:
-                    try:
-                        # Add a small delay before each edit attempt
-                        await asyncio.sleep(retry_delay)
-                        
-                        # Only update the embed, not the view, to reduce API calls
-                        # We'll update the view less frequently
-                        await self.panel_message.edit(embed=embed)
-                        logger.info("Updated existing panel message (embed only)")
-                        
-                        # Every 3rd update, also update the view
-                        if hasattr(self, 'view_update_counter'):
-                            self.view_update_counter += 1
-                        else:
-                            self.view_update_counter = 1
-                            
-                        if self.view_update_counter % 3 == 0:
-                            # Wait a bit before updating the view to space out API calls
-                            await asyncio.sleep(5)
-                            await self.panel_message.edit(view=view)
-                            logger.info("Updated panel view components")
-                            
-                        break  # Success, exit the retry loop
-                    except discord.HTTPException as e:
-                        if e.status == 429:  # Rate limit error
-                            retry_after = e.retry_after if hasattr(e, 'retry_after') else retry_delay * 2
-                            logger.warning(f"Rate limited when updating panel. Retry after {retry_after}s")
-                            await asyncio.sleep(retry_after)
-                            retry_count += 1
-                            retry_delay *= 3  # More aggressive exponential backoff
-                        else:
-                            logger.error(f"HTTP error when updating panel: {e}")
-                            break  # Don't retry for non-rate-limit errors
-                    except Exception as e:
-                        logger.error(f"Unexpected error when updating panel: {e}")
-                        break
-                        
-            except discord.NotFound:
-                logger.warning("Panel message not found, will recreate in next cycle")
-                self.panel_message = None
-            except Exception as e:
-                logger.error(f"Error updating panel: {e}")
+            # Update or create the panel message
+            if self.panel_message:
+                try:
+                    await self.panel_message.edit(embed=embed, view=view)
+                    logger.debug("Updated existing panel message")
+                except discord.NotFound:
+                    logger.warning("Panel message not found, creating new one")
+                    self.panel_message = None
+                    await self.ensure_panel()
+                    # Try again with a new message
+                    self.panel_message = await channel.send(embed=embed, view=view)
+                except Exception as e:
+                    logger.error(f"Error updating panel: {e}")
+            else:
+                try:
+                    self.panel_message = await channel.send(embed=embed, view=view)
+                    logger.info("Created new panel message")
+                except Exception as e:
+                    logger.error(f"Error creating panel: {e}")
         except Exception as e:
             logger.error(f"Error in update_panel: {e}")
     
@@ -157,66 +95,29 @@ class EndGuildCog(commands.Cog):
         await self.bot.wait_until_ready()
         
         try:
-            # Wait longer for the bot to fully initialize and for any startup operations to complete
-            logger.info("Panel update loop starting - waiting 60 seconds before first update")
-            await asyncio.sleep(60)  # Wait a full minute before first update
-            
-            # Track last successful update time to handle rate limits
-            last_update_time = datetime.now()
-            update_interval = timedelta(minutes=15)  # Increase to 15 minutes between updates
-            
-            # Set a flag to indicate if we've successfully updated at least once
-            first_update_done = False
+            # Wait a bit for the bot to fully initialize
+            await asyncio.sleep(5)
             
             while not self.bot.is_closed():
                 try:
-                    # Update member counts every 5 minutes
-                    if datetime.now() - last_update_time >= timedelta(minutes=5):
-                        await self.update_member_counts()
+                    # Update member counts
+                    await self.update_member_counts()
                     
-                    # Only update the panel if enough time has passed since last update
-                    current_time = datetime.now()
-                    if current_time - last_update_time >= update_interval:
-                        # Add additional delay if this is the first update
-                        if not first_update_done:
-                            logger.info("Preparing for first panel update")
-                            await asyncio.sleep(5)  # Small additional delay
-                        
-                        # Update the panel
-                        logger.info(f"Attempting panel update at {current_time}")
-                        await self.update_panel()
-                        last_update_time = current_time
-                        first_update_done = True
-                        logger.info(f"Panel updated successfully at {current_time}")
-                        
-                        # After a successful update, wait at least 2 minutes to avoid immediate rate limits
-                        await asyncio.sleep(120)
+                    # Update the panel
+                    await self.update_panel()
                     
-                except discord.HTTPException as e:
-                    if e.status == 429:  # Rate limit error
-                        retry_after = e.retry_after if hasattr(e, 'retry_after') else 300
-                        logger.warning(f"Rate limited. Waiting {retry_after} seconds before next update attempt")
-                        # Increase the update interval significantly to avoid rate limits
-                        update_interval = max(update_interval, timedelta(minutes=30))
-                        await asyncio.sleep(retry_after)
-                    else:
-                        logger.error(f"HTTP error in panel update loop: {e}")
-                        await asyncio.sleep(60)  # Wait a minute after any HTTP error
                 except Exception as e:
                     logger.error(f"Error in panel update loop: {e}")
-                    await asyncio.sleep(60)  # Wait a minute after any error
                 
-                # Check less frequently to reduce CPU usage
-                await asyncio.sleep(120)  # Check every 2 minutes instead of every minute
+                # Update every 60 seconds
+                await asyncio.sleep(60)
                 
         except asyncio.CancelledError:
             # Task was cancelled, clean up
-            logger.info("Panel update loop was cancelled")
             pass
         except Exception as e:
             logger.error(f"Unexpected error in panel update loop: {e}")
-            # Restart the task if it fails, but wait a bit before doing so
-            await asyncio.sleep(300)  # Wait 5 minutes before restarting
+            # Restart the task if it fails
             self.panel_update_task = self.bot.loop.create_task(self.panel_update_loop())
 
     @staticmethod
@@ -330,14 +231,11 @@ class EndGuildCog(commands.Cog):
         
         # Current date and time
         current_date = datetime.now().strftime("%d/%m/%Y")
-        current_time = datetime.now().strftime("%H:%M:%S")
         
         # Compact description optimized for mobile
         embed.description = (
             "```ini\n[END v3.0.0]\n```\n"
-            f"**👥 En ligne:** `{self.total_online_members}`  •  "
             f"**📅 Date:** `{current_date}`\n"
-            f"**⚡ Statut:** {'`OPÉRATIONNEL`' if self.total_online_members > 0 else '`EN ATTENTE`'}\n\n"
             "**Instructions:**\n"
             "1️⃣ Sélectionnez votre guilde\n"
             "2️⃣ Alertes dans <#1264140175395655712>"
@@ -346,39 +244,43 @@ class EndGuildCog(commands.Cog):
         # Add a compact divider for better section separation on mobile
         embed.add_field(name="⎯⎯⎯⎯⎯⎯⎯⎯", value="", inline=False)
         
-        # Set compact footer with last update time
-        embed.set_footer(text=f"END • Mise à jour: {current_time}")
+        # Get all guilds from config
+        from .config import GUILD_EMOJIS_ROLES
         
-        # Guild status fields with simplified styling - limit to 20 fields max (Discord limit is 25)
-        # Sort guilds by online member count (descending)
-        sorted_guilds = sorted(self.member_counts.items(), key=lambda x: x[1], reverse=True)
+        # Create a list of all guilds with their alert stats
+        guild_list = []
+        for guild_name in GUILD_EMOJIS_ROLES.keys():
+            stats = self.get_ping_stats(guild_name)
+            guild_data = GUILD_EMOJIS_ROLES.get(guild_name, {})
+            guild_emoji = guild_data.get("emoji", "🛡️")  # Default to shield emoji if not found
+            
+            guild_list.append({
+                "name": guild_name,
+                "emoji": guild_emoji,
+                "alerts_24h": stats['total_24h']
+            })
+        
+        # Sort guilds by name (alphabetically) instead of by member count
+        sorted_guilds = sorted(guild_list, key=lambda x: x["name"])
         
         # Limit to 10 guilds (which will create 20 fields with the spacers)
         displayed_guilds = 0
         max_guilds = 10
         
-        for guild_name, count in sorted_guilds:
+        for guild_data in sorted_guilds:
             # Stop if we've reached the maximum number of guilds to display
             if displayed_guilds >= max_guilds:
                 break
                 
-            stats = self.get_ping_stats(guild_name)
-            
-            # Simplified, phone-friendly styling
+            # Simplified, phone-friendly styling - removed member count
             valeur = (
                 f"```yml\n"
-                f"🔹 {count} membres en ligne\n"
-                f"🔹 {stats['total_24h']} alertes aujourd'hui\n```"
+                f"🔹 {guild_data['alerts_24h']} alertes aujourd'hui\n```"
             )
-            
-            # Get the guild's emoji from config
-            from .config import GUILD_EMOJIS_ROLES
-            guild_data = GUILD_EMOJIS_ROLES.get(guild_name, {})
-            guild_emoji = guild_data.get("emoji", "🛡️")  # Default to shield emoji if not found
             
             # Make fields display in a more phone-friendly way (2 columns instead of 3)
             embed.add_field(
-                name=f"{guild_emoji} {guild_name}",  # Show emoji and guild name
+                name=f"{guild_data['emoji']} {guild_data['name']}",  # Show emoji and guild name
                 value=valeur,
                 inline=True
             )
@@ -388,53 +290,68 @@ class EndGuildCog(commands.Cog):
             # Add a blank field after every 2 guilds to force 2-column layout on mobile
             if displayed_guilds % 2 == 0 and displayed_guilds < max_guilds:
                 embed.add_field(name="​", value="​", inline=True)
-
-        # Footer is already set above, no need to set it again
-        # Just return the embed
         
         return embed
 
     async def ensure_panel(self):
-        """Ensure the alert panel exists and is up to date."""
-        await self.update_member_counts()
-        
-        guild = self.bot.get_guild(GUILD_ID)
-        if not guild:
-            logger.warning("Guild not found")
-            return
-
-        channel = guild.get_channel(PING_DEF_CHANNEL_ID)
-        if not channel:
-            logger.warning("Channel not found")
-            return
-
-        if not self.panel_message:
-            try:
-                async for msg in channel.history(limit=20):
-                    if msg.author == self.bot.user and msg.pinned:
-                        self.panel_message = msg
-                        logger.info("Found existing panel message")
-                        break
-            except Exception as e:
-                logger.error(f"Error searching for panel message: {e}")
-
-        view = GuildPingView(self.bot)
-        embed = await self.create_panel_embed()
-
+        """Ensure that we have a valid panel message."""
         try:
-            if self.panel_message:
-                await self.panel_message.edit(embed=embed, view=view)
-                logger.debug("Updated existing panel message")
-            else:
-                self.panel_message = await channel.send(embed=embed, view=view)
-                await self.panel_message.pin(reason="Mise à jour du panneau")
-                logger.info("Created new panel message")
-        except discord.NotFound:
-            logger.warning("Panel message not found, creating new one")
-            self.panel_message = None
-            await self.ensure_panel()
+            # Get the alert channel
+            channel = self.bot.get_channel(ALERTE_DEF_CHANNEL_ID)
+            if not channel:
+                logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
+                return
+            
+            # Find existing panel message if we don't have one
+            if not self.panel_message:
+                try:
+                    async for message in channel.history(limit=10):
+                        if message.author == self.bot.user and message.embeds and len(message.embeds) > 0:
+                            self.panel_message = message
+                            logger.info("Found existing panel message")
+                            break
+                except Exception as e:
+                    logger.error(f"Error searching for panel message: {e}")
         except Exception as e:
-            logger.error(f"Error updating panel: {e}")
+            logger.error(f"Error in ensure_panel: {e}")
+            
+    async def update_panel(self):
+        """Update the panel with the latest information."""
+        try:
+            # Get the alert channel
+            channel = self.bot.get_channel(ALERTE_DEF_CHANNEL_ID)
+            if not channel:
+                logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
+                return
+            
+            # Ensure we have a panel message
+            await self.ensure_panel()
+            
+            # Create the panel embed and view
+            embed = await self.create_panel_embed()
+            view = GuildPingView(self)
+            
+            # Update or create the panel message
+            if self.panel_message:
+                try:
+                    await self.panel_message.edit(embed=embed, view=view)
+                    logger.debug("Updated existing panel message")
+                except discord.NotFound:
+                    logger.warning("Panel message not found, creating new one")
+                    self.panel_message = None
+                    # Try again with a new message
+                    self.panel_message = await channel.send(embed=embed, view=view)
+                    logger.info("Created new panel message")
+                except Exception as e:
+                    logger.error(f"Error updating panel: {e}")
+            else:
+                try:
+                    self.panel_message = await channel.send(embed=embed, view=view)
+                    logger.info("Created new panel message")
+                except Exception as e:
+                    logger.error(f"Error creating panel: {e}")
+        except Exception as e:
+            logger.error(f"Error in update_panel: {e}")
 
     async def on_member_update(self, before, after):
         """Handle member updates to refresh the panel."""
@@ -459,23 +376,58 @@ class EndGuildCog(commands.Cog):
     async def panel_update_loop(self):
         """Loop to update the panel message periodically."""
         await self.bot.wait_until_ready()
-        while not self.bot.is_closed():
-            try:
-                # Ensure we have the panel message
-                await self.ensure_panel()
+        
+        try:
+            # Wait longer for the bot to fully initialize
+            logger.info("Panel update loop starting - waiting 60 seconds before first update")
+            await asyncio.sleep(60)  # Wait a full minute before first update
+            
+            # Track last successful update time
+            last_update_time = datetime.now()
+            update_interval = timedelta(hours=1)  # Update only once per hour
+            
+            while not self.bot.is_closed():
+                try:
+                    current_time = datetime.now()
+                    
+                    # Only update the panel if enough time has passed since last update
+                    if current_time - last_update_time >= update_interval:
+                        logger.info(f"Scheduled panel update at {current_time}")
+                        
+                        # Ensure we have the panel message
+                        await self.ensure_panel()
+                        
+                        # Update the panel
+                        await self.update_panel()
+                        last_update_time = current_time
+                        logger.info(f"Panel updated successfully at {current_time}")
+                        
+                        # Wait a bit after updating to avoid rate limits
+                        await asyncio.sleep(30)
+                    
+                except discord.HTTPException as e:
+                    if e.status == 429:  # Rate limit error
+                        retry_after = e.retry_after if hasattr(e, 'retry_after') else 300
+                        logger.warning(f"Rate limited. Waiting {retry_after} seconds before next update attempt")
+                        # Increase the update interval temporarily
+                        update_interval = max(update_interval, timedelta(hours=2))
+                        await asyncio.sleep(retry_after)
+                    else:
+                        logger.error(f"HTTP error in panel update loop: {e}")
+                        await asyncio.sleep(60)
+                except Exception as e:
+                    logger.error(f"Error in panel update loop: {e}")
+                    await asyncio.sleep(60)
                 
-                # Update member counts and refresh the panel
-                await self.update_member_counts()
-                await self.update_panel()
+                # Check every 5 minutes
+                await asyncio.sleep(300)
                 
-                # Wait before next update
-                await asyncio.sleep(60)  # Update every minute
-            except asyncio.CancelledError:
-                # Handle proper cancellation
-                break
-            except Exception as e:
-                logger.error(f"Error in panel update loop: {e}")
-                await asyncio.sleep(60)  # Wait a bit before retrying
+        except asyncio.CancelledError:
+            logger.info("Panel update loop was cancelled")
+        except Exception as e:
+            logger.error(f"Unexpected error in panel update loop: {e}")
+            # Restart the task if it fails
+            self.panel_update_task = self.bot.loop.create_task(self.panel_update_loop())
 
     async def handle_ping(self, guild_name):
         """Handle cooldown for guild pings."""
