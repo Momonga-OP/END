@@ -33,6 +33,63 @@ class EndGuildCog(commands.Cog):
         if self.panel_update_task:
             self.panel_update_task.cancel()
             
+    async def ensure_panel(self):
+        """Ensure that we have a valid panel message."""
+        try:
+            # Get the alert channel
+            channel = self.bot.get_channel(ALERTE_DEF_CHANNEL_ID)
+            if not channel:
+                logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
+                return
+            
+            # Find existing panel message if we don't have one
+            if not self.panel_message:
+                async for message in channel.history(limit=10):
+                    if message.author == self.bot.user and message.embeds and len(message.embeds) > 0:
+                        self.panel_message = message
+                        logger.info("Found existing panel message")
+                        break
+        except Exception as e:
+            logger.error(f"Error in ensure_panel: {e}")
+    
+    async def update_panel(self):
+        """Update the panel with the latest information."""
+        try:
+            # Get the alert channel
+            channel = self.bot.get_channel(ALERTE_DEF_CHANNEL_ID)
+            if not channel:
+                logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
+                return
+            
+            # Ensure we have a panel message
+            await self.ensure_panel()
+            
+            # Create the panel embed and view
+            embed = self.create_panel_embed()
+            view = GuildPingView(self)
+            
+            # Update or create the panel message
+            if self.panel_message:
+                try:
+                    await self.panel_message.edit(embed=embed, view=view)
+                    logger.debug("Updated existing panel message")
+                except discord.NotFound:
+                    logger.warning("Panel message not found, creating new one")
+                    self.panel_message = None
+                    await self.ensure_panel()
+                    # Try again with a new message
+                    self.panel_message = await channel.send(embed=embed, view=view)
+                except Exception as e:
+                    logger.error(f"Error updating panel: {e}")
+            else:
+                try:
+                    self.panel_message = await channel.send(embed=embed, view=view)
+                    logger.info("Created new panel message")
+                except Exception as e:
+                    logger.error(f"Error creating panel: {e}")
+        except Exception as e:
+            logger.error(f"Error in update_panel: {e}")
+    
     async def panel_update_loop(self):
         """Background task that updates the panel periodically."""
         await self.bot.wait_until_ready()
@@ -46,36 +103,8 @@ class EndGuildCog(commands.Cog):
                     # Update member counts
                     await self.update_member_counts()
                     
-                    # Get the alert channel
-                    channel = self.bot.get_channel(ALERTE_DEF_CHANNEL_ID)
-                    if not channel:
-                        logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
-                        await asyncio.sleep(60)
-                        continue
-                    
-                    # Find existing panel message or create a new one
-                    if not self.panel_message:
-                        async for message in channel.history(limit=10):
-                            if message.author == self.bot.user and message.embeds and len(message.embeds) > 0:
-                                self.panel_message = message
-                                logger.info("Found existing panel message")
-                                break
-                    
-                    # Create or update the panel
-                    embed = self.create_panel_embed()
-                    view = GuildPingView(self)
-                    
-                    if self.panel_message:
-                        try:
-                            await self.panel_message.edit(embed=embed, view=view)
-                        except Exception as e:
-                            logger.error(f"Error updating panel: {e}")
-                    else:
-                        try:
-                            self.panel_message = await channel.send(embed=embed, view=view)
-                            logger.info("Created new panel message")
-                        except Exception as e:
-                            logger.error(f"Error creating panel: {e}")
+                    # Update the panel
+                    await self.update_panel()
                     
                 except Exception as e:
                     logger.error(f"Error in panel update loop: {e}")
