@@ -65,7 +65,7 @@ class EndGuildCog(commands.Cog):
             await self.ensure_panel()
             
             # Create the panel embed and view
-            embed = self.create_panel_embed()
+            embed = await self.create_panel_embed()
             view = GuildPingView(self)
             
             # Update or create the panel message
@@ -212,7 +212,6 @@ class EndGuildCog(commands.Cog):
 
     async def create_panel_embed(self) -> discord.Embed:
         """Create the embed for the alert panel."""
-        await self.update_member_counts()
         
         # Use a dark blue color for the END theme
         embed = discord.Embed(
@@ -291,12 +290,8 @@ class EndGuildCog(commands.Cog):
             if displayed_guilds % 2 == 0 and displayed_guilds < max_guilds:
                 embed.add_field(name="​", value="​", inline=True)
 
-        # More informative footer with last update time
-        last_update = datetime.now().strftime('%H:%M:%S')
-        embed.set_footer(
-            text=f"END Defense System • Dernière actualisation: {last_update}",
-            icon_url="https://i.imgur.com/wSUgM5O.png"  # Modern clock icon
-        )
+        # Footer is already set above, no need to set it again
+        # Just return the embed
         
         return embed
 
