@@ -43,9 +43,14 @@ def load_guild_data_from_db():
     """Load guild data from database and populate GUILD_EMOJIS_ROLES"""
     from database import get_all_guilds
     
+    # Declare global variable at the beginning of the function
+    global GUILD_EMOJIS_ROLES
+    
     try:
         guilds = get_all_guilds()
         if guilds:
+            # Clear existing data and start fresh
+            GUILD_EMOJIS_ROLES = {}
             for guild in guilds:
                 # guild format: (id, guild_name, emoji_id, role_id)
                 guild_name = guild[1]
@@ -54,10 +59,8 @@ def load_guild_data_from_db():
                 GUILD_EMOJIS_ROLES[guild_name] = {"emoji": emoji_id, "role_id": role_id}
         else:
             # If no guilds in database, use defaults
-            global GUILD_EMOJIS_ROLES
             GUILD_EMOJIS_ROLES = DEFAULT_GUILD_EMOJIS_ROLES.copy()
     except Exception as e:
         print(f"Error loading guild data from database: {e}")
         # Fallback to default values
-        global GUILD_EMOJIS_ROLES
         GUILD_EMOJIS_ROLES = DEFAULT_GUILD_EMOJIS_ROLES.copy()

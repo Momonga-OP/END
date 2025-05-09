@@ -23,11 +23,10 @@ jobs:
         with:
           python-version: '3.9'
 
-      # Step 3: Install FFmpeg
-      - name: Install FFmpeg
+      # Step 3: No longer installing FFmpeg as it's not needed
+      - name: Echo system info
         run: |
-          sudo apt update
-          sudo apt install -y ffmpeg
+          echo "Running on GitHub Actions runner"
 
       # Step 4: Install dependencies
       - name: Install dependencies
