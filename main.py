@@ -199,7 +199,8 @@ EXTENSIONS = [
     'cogs.watermark_user', 'cogs.metiers',
     'cogs.image_converter', 'cogs.endguild', 'cogs.clear',  # Updated to endguild
     'cogs.alerts', 'cogs.welcomesparta',
-    'cogs.super', 'cogs.translator', 'cogs.voice', 'cogs.rules', 'cogs.write', 'cogs.dofustouch',
+    'cogs.super', 'cogs.translator', 'cogs.rules', 'cogs.write', 'cogs.dofustouch',
+    # 'cogs.voice',  # Removed due to FFmpeg dependency exceeding Vercel size limits
 ]
 
 async def load_extensions():

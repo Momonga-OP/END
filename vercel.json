@@ -2,14 +2,28 @@
   "version": 2,
   "builds": [
     {
-      "src": "main.py",
-      "use": "@vercel/python"
+      "src": "api/**/*.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "includeFiles": [
+          "database.py",
+          "cogs/endguild.py",
+          "cogs/alerts.py",
+          "cogs/config.py"
+        ],
+        "excludeFiles": [
+          "cogs/voice.py",
+          "**/*.pyc",
+          "**/__pycache__/**"
+        ]
+      }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "main.py"
+      "dest": "api/$1"
     }
   ],
   "crons": [
