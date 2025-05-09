@@ -32,6 +32,64 @@ class EndGuildCog(commands.Cog):
         """Clean up when the cog is unloaded."""
         if self.panel_update_task:
             self.panel_update_task.cancel()
+            
+    async def panel_update_loop(self):
+        """Background task that updates the panel periodically."""
+        await self.bot.wait_until_ready()
+        
+        try:
+            # Wait a bit for the bot to fully initialize
+            await asyncio.sleep(5)
+            
+            while not self.bot.is_closed():
+                try:
+                    # Update member counts
+                    await self.update_member_counts()
+                    
+                    # Get the alert channel
+                    channel = self.bot.get_channel(ALERTE_DEF_CHANNEL_ID)
+                    if not channel:
+                        logger.error(f"Could not find channel with ID: {ALERTE_DEF_CHANNEL_ID}")
+                        await asyncio.sleep(60)
+                        continue
+                    
+                    # Find existing panel message or create a new one
+                    if not self.panel_message:
+                        async for message in channel.history(limit=10):
+                            if message.author == self.bot.user and message.embeds and len(message.embeds) > 0:
+                                self.panel_message = message
+                                logger.info("Found existing panel message")
+                                break
+                    
+                    # Create or update the panel
+                    embed = self.create_panel_embed()
+                    view = GuildPingView(self)
+                    
+                    if self.panel_message:
+                        try:
+                            await self.panel_message.edit(embed=embed, view=view)
+                        except Exception as e:
+                            logger.error(f"Error updating panel: {e}")
+                    else:
+                        try:
+                            self.panel_message = await channel.send(embed=embed, view=view)
+                            logger.info("Created new panel message")
+                        except Exception as e:
+                            logger.error(f"Error creating panel: {e}")
+                    
+                except Exception as e:
+                    logger.error(f"Error in panel update loop: {e}")
+                
+                # Update every 60 seconds
+                await asyncio.sleep(60)
+                
+        except asyncio.CancelledError:
+            # Task was cancelled, clean up
+            pass
+        except Exception as e:
+            logger.error(f"Unexpected error in panel update loop: {e}")
+            # Restart the task if it fails
+            self.panel_update_task = self.bot.loop.create_task(self.panel_update_loop())
 
     @staticmethod
     def create_progress_bar(percentage: float, length: int = 10) -> str:
@@ -164,8 +222,19 @@ class EndGuildCog(commands.Cog):
         # Set compact footer with last update time
         embed.set_footer(text=f"END • Mise à jour: {current_time}")
         
-        # Guild status fields with simplified styling
-        for guild_name, count in self.member_counts.items():
+        # Guild status fields with simplified styling - limit to 20 fields max (Discord limit is 25)
+        # Sort guilds by online member count (descending)
+        sorted_guilds = sorted(self.member_counts.items(), key=lambda x: x[1], reverse=True)
+        
+        # Limit to 10 guilds (which will create 20 fields with the spacers)
+        displayed_guilds = 0
+        max_guilds = 10
+        
+        for guild_name, count in sorted_guilds:
+            # Stop if we've reached the maximum number of guilds to display
+            if displayed_guilds >= max_guilds:
+                break
+                
             stats = self.get_ping_stats(guild_name)
             
             # Simplified, phone-friendly styling
@@ -187,8 +256,10 @@ class EndGuildCog(commands.Cog):
                 inline=True
             )
             
+            displayed_guilds += 1
+            
             # Add a blank field after every 2 guilds to force 2-column layout on mobile
-            if len(embed.fields) % 3 == 0:  # Every 2 guild fields (plus 1 divider field)
+            if displayed_guilds % 2 == 0 and displayed_guilds < max_guilds:
                 embed.add_field(name="​", value="​", inline=True)
 
         # More informative footer with last update time
