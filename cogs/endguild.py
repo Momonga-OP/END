@@ -147,40 +147,32 @@ class EndGuildCog(commands.Cog):
         current_date = datetime.now().strftime("%d/%m/%Y")
         current_time = datetime.now().strftime("%H:%M:%S")
         
-        # Improved description with better formatting - simplified to show only total online count
+        # Compact description optimized for mobile
         embed.description = (
-            "```ini\n[END DEFENSE SYSTEM v3.0.0]\n```\n"
-            "### 📋 Instructions\n"
-            "> 1️⃣ Sélectionnez votre guilde ci-dessous\n"
-            "> 2️⃣ Suivez les alertes dans <#1264140175395655712>\n"
-            "> 3️⃣ Ajoutez des notes aux alertes si nécessaire\n\n"
-            f"**👥 Défenseurs en ligne:** `{self.total_online_members}`  •  "
-            f"**📅 Date:** `{current_date}`\n\n"
-            f"**⚡ Statut:** {'`OPÉRATIONNEL`' if self.total_online_members > 0 else '`EN ATTENTE DE DÉFENSEURS`'}"
+            "```ini\n[END v3.0.0]\n```\n"
+            f"**👥 En ligne:** `{self.total_online_members}`  •  "
+            f"**📅 Date:** `{current_date}`\n"
+            f"**⚡ Statut:** {'`OPÉRATIONNEL`' if self.total_online_members > 0 else '`EN ATTENTE`'}\n\n"
+            "**Instructions:**\n"
+            "1️⃣ Sélectionnez votre guilde\n"
+            "2️⃣ Alertes dans <#1264140175395655712>"
         )
 
-        # Add a divider for better section separation
-        embed.add_field(name="⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯", value="", inline=False)
+        # Add a compact divider for better section separation on mobile
+        embed.add_field(name="⎯⎯⎯⎯⎯⎯⎯⎯", value="", inline=False)
         
-        # Set footer with last update time
-        embed.set_footer(text=f"END Defense System • Dernière actualisation: {current_time} • Today at {datetime.now().strftime('%I:%M %p')}")
+        # Set compact footer with last update time
+        embed.set_footer(text=f"END • Mise à jour: {current_time}")
         
-        # Guild status fields with improved styling
+        # Guild status fields with simplified styling
         for guild_name, count in self.member_counts.items():
             stats = self.get_ping_stats(guild_name)
-            activite = self.create_progress_bar(stats['activite_24h'] / 100)
             
-            # Cooldown status with better visual indicators
-            cooldown_status = "⚠️ EN COURS" if self.cooldowns.get(guild_name) else "✅ DISPONIBLE"
-            cooldown_time = f" ({int(self.cooldowns.get(guild_name) - datetime.now().timestamp())}s)" if self.cooldowns.get(guild_name) else ""
-            
-            # More modern field styling
+            # Simplified, phone-friendly styling
             valeur = (
                 f"```yml\n"
-                f"Défenseurs: {count} membres en ligne\n"
-                f"Alertes 24h: {stats['total_24h']} ({stats['unique_24h']} uniques)\n"
-                f"Cooldown: {cooldown_status}{cooldown_time}\n"
-                f"Activité: {activite}\n```"
+                f"🔹 {count} membres en ligne\n"
+                f"🔹 {stats['total_24h']} alertes aujourd'hui\n```"
             )
             
             # Use emojis that match the guild if possible
@@ -191,11 +183,16 @@ class EndGuildCog(commands.Cog):
             elif "Nightmare" in guild_name: guild_emoji = "🌙"
             elif "Crescent" in guild_name: guild_emoji = "🌊"
             
+            # Make fields display in a more phone-friendly way (2 columns instead of 3)
             embed.add_field(
                 name=f"{guild_emoji} {guild_name}",
                 value=valeur,
                 inline=True
             )
+            
+            # Add a blank field after every 2 guilds to force 2-column layout on mobile
+            if len(embed.fields) % 3 == 0:  # Every 2 guild fields (plus 1 divider field)
+                embed.add_field(name="​", value="​", inline=True)
 
         # More informative footer with last update time
         last_update = datetime.now().strftime('%H:%M:%S')
