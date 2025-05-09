@@ -18,7 +18,7 @@ class EndGuildCog(commands.Cog):
         self.cooldowns = {}
         self.ping_history = defaultdict(list)
         self.member_counts = {}
-        self.online_members = {'online': 0, 'idle': 0, 'dnd': 0}
+        self.total_online_members = 0
         self.panel_message: Optional[discord.Message] = None
         
         # Start the panel update task
@@ -48,13 +48,6 @@ class EndGuildCog(commands.Cog):
                 # Force fetch all members and their presences
                 await guild.chunk(cache=True)
                 
-                # Track total online members and their statuses
-                self.online_members = {
-                    'online': 0,  # Green status
-                    'idle': 0,    # Yellow/Away status
-                    'dnd': 0      # Red/Do Not Disturb status
-                }
-                
                 # Initialize member counts dictionary if not exists
                 if not hasattr(self, 'member_counts') or not self.member_counts:
                     self.member_counts = {}
@@ -63,30 +56,30 @@ class EndGuildCog(commands.Cog):
                 from .config import GUILD_EMOJIS_ROLES, load_guild_data_from_db
                 load_guild_data_from_db()  # Refresh guild data
                 
+                # Track total online members
+                self.total_online_members = 0
+                
                 # Track guild-specific counts based on roles from database
                 for guild_name, guild_data in GUILD_EMOJIS_ROLES.items():
                     role_id = guild_data.get('role_id')
                     if role_id:
                         role = guild.get_role(role_id)
                         if role:
-                            online_count = 0
-                            for m in role.members:
-                                # Check if member is online (not offline and not invisible)
-                                if not m.bot and hasattr(m, 'status') and str(m.status) != 'offline':
-                                    online_count += 1
-                                    # Also count for global stats based on status
-                                    status = str(m.status)
-                                    if status in self.online_members:
-                                        self.online_members[status] += 1
+                            online_count = sum(1 for m in role.members 
+                                             if not m.bot and hasattr(m, 'status') 
+                                             and str(m.status) != 'offline')
                             
                             # Store the count for this guild
                             self.member_counts[guild_name] = online_count
+                            
+                            # Add to total online count
+                            self.total_online_members += online_count
                         else:
                             logger.warning(f"Role with ID {role_id} for guild {guild_name} not found")
                             self.member_counts[guild_name] = 0
                 
                 logger.debug(f"Updated member counts: {self.member_counts}")
-                logger.debug(f"Online members: {self.online_members}")
+                logger.debug(f"Total online members: {self.total_online_members}")
             except Exception as e:
                 logger.error(f"Error updating member counts: {e}")
 
@@ -141,12 +134,6 @@ class EndGuildCog(commands.Cog):
             timestamp=datetime.now()
         )
         
-        # Get total online players and breakdown by status
-        total_online = sum(self.member_counts.values())
-        online_count = self.online_members.get('online', 0)
-        idle_count = self.online_members.get('idle', 0)
-        dnd_count = self.online_members.get('dnd', 0)
-        
         # Update the icon URL to a more modern icon
         embed.set_author(
             name="Système d'Alerte END",
@@ -160,17 +147,16 @@ class EndGuildCog(commands.Cog):
         current_date = datetime.now().strftime("%d/%m/%Y")
         current_time = datetime.now().strftime("%H:%M:%S")
         
-        # Improved description with better formatting and detailed online counts
+        # Improved description with better formatting - simplified to show only total online count
         embed.description = (
             "```ini\n[END DEFENSE SYSTEM v3.0.0]\n```\n"
             "### 📋 Instructions\n"
             "> 1️⃣ Sélectionnez votre guilde ci-dessous\n"
             "> 2️⃣ Suivez les alertes dans <#1370180452995825765>\n"
             "> 3️⃣ Ajoutez des notes aux alertes si nécessaire\n\n"
-            f"**👥 Défenseurs en ligne:** `{total_online}` "
-            f"(🟢 `{online_count}` • 🟡 `{idle_count}` • 🔴 `{dnd_count}`)  •  "
+            f"**👥 Défenseurs en ligne:** `{self.total_online_members}`  •  "
             f"**📅 Date:** `{current_date}`\n\n"
-            f"**⚡ Statut:** {'`OPÉRATIONNEL`' if total_online > 0 else '`EN ATTENTE DE DÉFENSEURS`'}"
+            f"**⚡ Statut:** {'`OPÉRATIONNEL`' if self.total_online_members > 0 else '`EN ATTENTE DE DÉFENSEURS`'}"
         )
 
         # Add a divider for better section separation
