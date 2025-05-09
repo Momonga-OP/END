@@ -175,17 +175,14 @@ class EndGuildCog(commands.Cog):
                 f"🔹 {stats['total_24h']} alertes aujourd'hui\n```"
             )
             
-            # Use emojis that match the guild if possible
-            guild_emoji = "🛡️"  # Default shield
-            if "GTO" in guild_name: guild_emoji = "🔱"
-            elif "MERCENAIRES" in guild_name: guild_emoji = "⚔️"
-            elif "Notorious" in guild_name: guild_emoji = "👑"
-            elif "Nightmare" in guild_name: guild_emoji = "🌙"
-            elif "Crescent" in guild_name: guild_emoji = "🌊"
+            # Get the guild's emoji from config
+            from .config import GUILD_EMOJIS_ROLES
+            guild_data = GUILD_EMOJIS_ROLES.get(guild_name, {})
+            guild_emoji = guild_data.get("emoji", "🛡️")  # Default to shield emoji if not found
             
             # Make fields display in a more phone-friendly way (2 columns instead of 3)
             embed.add_field(
-                name=f"{guild_emoji} {guild_name}",
+                name=f"{guild_emoji} {guild_name}",  # Show emoji and guild name
                 value=valeur,
                 inline=True
             )
