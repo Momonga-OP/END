@@ -414,7 +414,7 @@ class EndGuildCog(commands.Cog):
                 return self.cooldowns[guild_name] - now
             del self.cooldowns[guild_name]
         
-        self.cooldowns[guild_name] = now + 15  # 15 seconds cooldown
+        self.cooldowns[guild_name] = now + 30  # 30 seconds cooldown
         return True
 
     @commands.command(name="alerte_guild")
