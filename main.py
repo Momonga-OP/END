@@ -195,7 +195,7 @@ async def close_sessions():
 # List of extensions (cogs) to load
 EXTENSIONS = [
     'cogs.admin',
-    'cogs.relocate', 'cogs.watermark', 'cogs.talk', 'cogs.role',
+    'cogs.relocate', 'cogs.watermark', 'cogs.talk',
     'cogs.watermark_user',
     'cogs.image_converter', 'cogs.endguild', 'cogs.clear',  # Updated to endguild
     'cogs.alerts',

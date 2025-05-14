@@ -42,7 +42,7 @@ DEFAULT_GUILD_EMOJIS_ROLES = {
     "Monark": {"emoji": "<:Monark:1306689408526848041>", "role_id": 1332465195452207183},
     "Triade II": {"emoji": "<:TriadeII:1306689408526848041>", "role_id": 1285299162442633216},
     "RED END": {"emoji": "<:REDEND:1306689408526848041>", "role_id": 1367513954187739187},
-    "Fidelity": {"emoji": "<:Fidelity:1306689408526848041>", "role_id": 1264141479647907913},
+    "Enemi Public": {"emoji": "<:EnemiPublic:1372322467049246761>", "role_id": 1372318393587208344},
 }
 
 # This will be populated from the database
