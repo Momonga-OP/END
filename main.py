@@ -7,6 +7,7 @@ import sys
 from dotenv import load_dotenv
 from database import initialize_db
 from cogs.config import load_guild_data_from_db
+from cogs.config_server2 import load_guild_data_from_db as load_guild_data_from_db_server2
 
 # Load environment variables
 load_dotenv()
@@ -41,6 +42,7 @@ try:
     initialize_db()
     # Load guild data from database
     load_guild_data_from_db()
+    load_guild_data_from_db_server2()
     logger.info("Database initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize database: {e}")
@@ -200,6 +202,7 @@ EXTENSIONS = [
     'cogs.image_converter', 'cogs.endguild', 'cogs.clear',  # Updated to endguild
     'cogs.alerts',
     'cogs.super', 'cogs.translator', 'cogs.rules', 'cogs.write', 'cogs.dofustouch',
+    'cogs.endguild_server2',  # Added for the second server
     # 'cogs.voice',  # Removed due to FFmpeg dependency exceeding Vercel size limits
 ]
 
