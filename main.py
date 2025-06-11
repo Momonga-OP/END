@@ -9,7 +9,6 @@ from database import initialize_db
 from cogs.config import load_guild_data_from_db
 from cogs.config_server2 import load_guild_data_from_db as load_guild_data_from_db_server2
 
-# Load environment variables
 load_dotenv()
 
 # Set up logging
