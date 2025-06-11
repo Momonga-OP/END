@@ -30,7 +30,6 @@ DEFAULT_GUILD_EMOJIS_ROLES = {
     "NOTORIOUS": {"emoji": "<:NOTORIOUS:1306689408526848041>", "role_id": 1350870052429238377},
     "Crescent": {"emoji": "<:Crescent:1306689408526848041>", "role_id": 1348444561802006658},
     "Jungle gap": {"emoji": "<:JungleGap:1306689440881840178>", "role_id": 1265060172607525028},
-    "Mercenaires": {"emoji": "<:Mercenaires:1306689408526848041>", "role_id": 1350869966823362642},
     "Nomea": {"emoji": "<:Nomea:1306689555717558322>", "role_id": 1284258627196162179},
     "MS Mafia": {"emoji": "<:MSMafia:1306689457898000516>", "role_id": 1264990097863086080},
     "The Mortal Sworld": {"emoji": "<:MortalSworld:1306689408526848041>", "role_id": 1264994715661631643},
@@ -40,9 +39,7 @@ DEFAULT_GUILD_EMOJIS_ROLES = {
     "Warrior Elite": {"emoji": "<:WarriorElite:1306689667726311455>", "role_id": 1306699042763309179},
     "Warriors Toxic": {"emoji": "<:WarriorsToxic:1306689680535720007>", "role_id": 1264141342154686534},
     "Monark": {"emoji": "<:Monark:1306689408526848041>", "role_id": 1332465195452207183},
-    "Triade II": {"emoji": "<:TriadeII:1306689408526848041>", "role_id": 1285299162442633216},
     "RED END": {"emoji": "<:REDEND:1306689408526848041>", "role_id": 1367513954187739187},
-    "Enemi Public": {"emoji": "<:EnemiPublic:1372322467049246761>", "role_id": 1372318393587208344},
 }
 
 # This will be populated from the database
