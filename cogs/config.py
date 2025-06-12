@@ -40,6 +40,8 @@ DEFAULT_GUILD_EMOJIS_ROLES = {
     "Warriors Toxic": {"emoji": "<:WarriorsToxic:1306689680535720007>", "role_id": 1264141342154686534},
     "Monark": {"emoji": "<:Monark:1306689408526848041>", "role_id": 1332465195452207183},
     "RED END": {"emoji": "<:REDEND:1306689408526848041>", "role_id": 1367513954187739187},
+    "Mercenaire": {"emoji": "<:Mercenaire:1358126128232927392>", "role_id": 1350869966823362642},
+
 }
 
 # This will be populated from the database
